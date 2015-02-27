@@ -7,46 +7,27 @@ maintainer:          ababkin@gmail.com
 build-type:          Simple
 cabal-version:       >=1.8
 
-Flag Haste-inst
-  Description: either if it is being compiled with haste-inst or with cabal
-  Default: False
-
 executable circle
-  if flag(haste-inst)
-    hs-source-dirs: src
-    main-is: Main.hs
-    buildable: True
-    ghc-options: --output-html
-    build-depends:
-        base >= 4 && < 5
-      , haste-lib
-      -- , haste-perch
-      , transformers
-      , monad-loops
-      , split
-
-  else
-    hs-source-dirs: src
-    main-is:        Main.hs
-    ghc-options:    -static -Wall
-    buildable: True
-    build-depends:
-        base >= 4 && < 5
-      , text
-      , attoparsec
-      , mtl
-      , stm
-      , transformers
-      , lens
-      , aeson
-      , lens-aeson
-      , network
-      , bytestring
-      , haste-compiler
-      -- , haste-perch
-      , monad-loops
-      , split
-      , wreq
-      , containers
-      , vector
-    extensions:    GeneralizedNewtypeDeriving
+  hs-source-dirs: src
+  main-is:        Main.hs
+  ghc-options:    -static -Wall
+  buildable: True
+  build-depends:
+      base >= 4 && < 5
+    , text
+    , attoparsec
+    , mtl
+    , stm
+    , transformers
+    , lens
+    , aeson
+    , lens-aeson
+    , network
+    , bytestring
+    , split
+    , wreq
+    , containers
+    , vector
+    , process
+    , hdaemonize
+    , directory
