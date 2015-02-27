@@ -37,14 +37,16 @@ executable circle
       , mtl
       , stm
       , transformers
-      , aeson
       , lens
+      , aeson
+      , lens-aeson
       , network
       , bytestring
       , haste-compiler
       -- , haste-perch
       , monad-loops
       , split
-      , aeson-lens
       , wreq
+      , containers
+      , vector
     extensions:    GeneralizedNewtypeDeriving
