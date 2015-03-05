@@ -2,6 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import Control.Monad (forever)
+import Control.Exception(catch)
+import GHC.Exception(Exception(..))
 import Control.Concurrent (threadDelay)
 import Control.Monad.IO.Class (liftIO)
 import Control.Lens ((.~), (&), (^.), _head, (^?), filtered)
@@ -19,6 +21,7 @@ import qualified Control.Monad.State.Strict as ST
 import Data.List 
 import System.Posix.Daemonize (daemonize)
 import System.Directory (getCurrentDirectory, setCurrentDirectory)
+import Network.HTTP.Conduit(HttpException)
 
 {- url = "https://circleci.com/api/v1/project/zephyr-dev/gust?circle-token=a5422c509e6c049514733030174a901e8cd17b3e" -}
 
@@ -38,11 +41,14 @@ type Build = Value
 
 type SIO a = StateT [Build] IO a
 
+
+f :: HttpException -> IO (Either String b)
+f e = return $ Left $ show e
+
+
 main :: IO ()
 main = do
   path <- getCurrentDirectory
-
-  daemonize $ do
   setCurrentDirectory path
   (_, _) <- runStateT iter []
   return ()
@@ -52,21 +58,25 @@ main = do
       iter = forever $ do
         authors <- liftIO $ currentAuthors
 
-        (r :: Response Body) <- liftIO $ asJSON =<< getWith opts buildsUrl
-        let currentCompletedBuilds = V.toList $ V.filter (filterByAuthors authors) $ r ^. responseBody . _Array
+        (eitherResult :: Either String (Response Body)) <- liftIO $ catch (return . Right =<< asJSON =<< getWith opts buildsUrl ) f
+        case eitherResult of
+          Right r -> do
+            let currentCompletedBuilds = V.toList $ V.filter (filterByAuthors authors) $ r ^. responseBody . _Array
 
-        oldBuilds <- ST.get
+            oldBuilds <- ST.get
 
-        {- let oldBuilds = [] -}
-        let newBuilds = currentCompletedBuilds \\ oldBuilds
+            {- let oldBuilds = [] -}
+            let newBuilds = currentCompletedBuilds \\ oldBuilds
 
-        mapM_ (liftIO . notify) newBuilds
-        ST.put $ nub $ currentCompletedBuilds ++ oldBuilds
-        liftIO $ putStrLn "Checked Circle for new Builds"
+            mapM_ (liftIO . notify) newBuilds
+            ST.put $ nub $ currentCompletedBuilds ++ oldBuilds
+            liftIO $ putStrLn "Checked Circle for new Builds"
 
 
-        liftIO $ threadDelay $ 10 * 1000 * 1000 -- 10 seconds
+            liftIO $ threadDelay $ 10 * 1000 * 1000 -- 10 seconds
 
+          Left err -> do
+            liftIO $ putStrLn $ "Handled Exception: " ++ err
           where
 
             filterByAuthors :: Authors -> (Build -> Bool)
