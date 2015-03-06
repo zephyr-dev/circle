@@ -48,39 +48,36 @@ f e = return $ Left $ show e
 
 main :: IO ()
 main = do
-  path <- getCurrentDirectory
-  setCurrentDirectory path
-  (_, _) <- runStateT iter []
-  return ()
-  
-    where
-      iter :: SIO ()
-      iter = forever $ do
-        authors <- liftIO $ currentAuthors
+  daemonize $ do 
+    path <- getCurrentDirectory
+    setCurrentDirectory path
+    (_, _) <- runStateT iter []
+    return ()
+    
+      where
+        iter :: SIO ()
+        iter = forever $ do
+          authors <- liftIO $ currentAuthors
 
-        (eitherResult :: Either String (Response Body)) <- liftIO $ catch (return . Right =<< asJSON =<< getWith opts buildsUrl ) f
-        case eitherResult of
-          Right r -> do
-            let currentCompletedBuilds = V.toList $ V.filter (filterByAuthors authors) $ r ^. responseBody . _Array
+          (eitherResult :: Either String (Response Body)) <- liftIO $ catch (return . Right =<< asJSON =<< getWith opts buildsUrl ) f
+          case eitherResult of
+            Right r -> do
+              let currentCompletedBuilds = V.toList $ V.filter (filterByAuthors authors) $ r ^. responseBody . _Array
 
-            oldBuilds <- ST.get
+              oldBuilds <- ST.get
 
-            {- let oldBuilds = [] -}
-            let newBuilds = currentCompletedBuilds \\ oldBuilds
+              {- let oldBuilds = [] -}
+              let newBuilds = currentCompletedBuilds \\ oldBuilds
 
-            mapM_ (liftIO . notify) newBuilds
-            ST.put $ nub $ currentCompletedBuilds ++ oldBuilds
-            liftIO $ putStrLn "Checked Circle for new Builds"
+              mapM_ (liftIO . notify) newBuilds
+              ST.put $ nub $ currentCompletedBuilds ++ oldBuilds
+              liftIO $ threadDelay $ 10 * 1000 * 1000 -- 10 seconds
 
-
-            liftIO $ threadDelay $ 10 * 1000 * 1000 -- 10 seconds
-
-          Left err -> do
-            liftIO $ putStrLn $ "Handled Exception: " ++ err
-          where
-
-            filterByAuthors :: Authors -> (Build -> Bool)
-            filterByAuthors authors build = build ^. key "author_name" . _String == T.pack authors
+            Left err -> do
+              return ()
+            where
+              filterByAuthors :: Authors -> (Build -> Bool)
+              filterByAuthors authors build = build ^. key "author_name" . _String == T.pack authors
 
 
 
@@ -102,11 +99,8 @@ currentBranch = do
 notify :: Build -> IO ()
 notify build = do
   let status = T.toUpper $ build ^. key "status" . _String
-  let author = build ^. key "author_name" . _String
   let branchName = build ^. key "branch" . _String
   readProcessWithExitCode "osascript" ["-e", "display notification \"" ++ " " ++ (T.unpack branchName) ++ "\" with title \"" ++ (T.unpack status) ++ " \" "] ""
-
-  readProcessWithExitCode "say" [T.unpack author ++ ", build " ++ (T.unpack status)] ""
   return ()
   
 
