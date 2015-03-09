@@ -48,8 +48,8 @@ f e = return $ Left $ show e
 
 main :: IO ()
 main = do
+  path <- getCurrentDirectory
   daemonize $ do 
-    path <- getCurrentDirectory
     setCurrentDirectory path
     (_, _) <- runStateT iter []
     return ()
